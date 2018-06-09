@@ -52,7 +52,7 @@ class Meta(Base):
     library = relationship(Library, back_populates='meta')
 
     def __repr__(self):
-        return f'<Data type="{self.type}", value="{self.value}">'
+        return f'<Meta type="{self.type}", value="{self.value}">'
 
 if __name__ == '__main__':
     engine = create_engine('sqlite:///meta.db')
