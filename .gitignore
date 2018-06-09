@@ -109,3 +109,5 @@ bin/
 lib64
 pyvenv.cfg
 pip-selfcheck.json
+
+data.db

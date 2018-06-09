@@ -11,7 +11,7 @@ class Link(Base):
     __tablename__ = 'links'
 
     id = Column(Integer, primary_key=True)
-    url = Column(String, unique=True)
+    url = Column(String, unique=True, nullable=False)
     title = Column(String, nullable=False)
     meta_data = relationship('MetaData', back_populates='link')
 
