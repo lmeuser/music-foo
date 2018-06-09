@@ -17,6 +17,18 @@ class Link(Base):
     def __repr__(self):
         return f'<Link title="{self.title}" url="{self.url}">'
 
+    def __init__(self, url, title, metadata={}):
+        super().__init__(url=url, title=title)
+        md = []
+        for name, val in metadata.items():
+            if isinstance(val, str):
+                md.append(('tag', val))
+            else:
+                for i in val:
+                    md.append(('tag', i))
+        for t, v in md:
+            self.meta_data.append(MetaData(type=t, value=v, link=self))
+
 
 users_groups = Table('users_groups', Base.metadata,
     Column('user_id', ForeignKey('users.id'), primary_key=True),
@@ -79,6 +91,7 @@ if __name__ == '__main__':
     # see https://docs.sqlalchemy.org/en/latest/orm/tutorial.html#adding-and-updating-objects
     # for how to use.
     # simple example:
-    # l = Link(url='https://www.youtube.com/watch?v=DLzxrzFCyOs', title='some link')
-    # session.add(l)
-    # session.commit()
+    l = Link(url='https://www.youtube.com/watch?v=DLzxrzFCyOs', title='some link',
+             metadata={'tag': ['rick astley', 'meme']})
+    session.add(l)
+    session.commit()
