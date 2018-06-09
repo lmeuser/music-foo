@@ -15,26 +15,25 @@ class Resource(Base):
     id = Column(Integer, primary_key=True)
     location = Column(String, unique=True, nullable=False)
     title = Column(String, nullable=False)
-    type = Column(String, nullable=True)
+    type = Column(String)
+    library_id = Column(Integer, ForeignKey('libraries.id'))
     library = relationship('Library', back_populates='resources', uselist=False)
     meta_data = relationship('MetaData', secondary=resources_metadata,
-            back_populates='resources', cascade='all, delete-orphan',
-            lazy='dynamic')
+            back_populates='resources', lazy='dynamic')
 
 
     def __repr__(self):
         return f'<Resource title="{self.title}" url="{self.location}", type="{self.type}">'
 
-    def __init__(self, location, title, type=None, metadata={}):
+    def __init__(self, location, title, type=None, metadata={):
         super().__init__(location=location, title=title, type=type)
-        md = []
-        [self.add_metadata(key, value) for key, value in metadata.items()]
+        [self.add_metadata(type, value) for type, value in metadata.items()]
 
-    def add_metadata(type, value):
+    def add_metadata(self, type, value):
         if isinstance(value, list):
             [self.add_metadata(type, subvalue) for subvalue in value]
         elif isinstance(value, str):
-            self.meta_data.append(MetaData(type=type, value=value, resource=self))
+            self.meta_data.append(MetaData(type=type, value=value, resources=[self]))
         else:
             raise ValueError('Invalid value for metadata')
 
@@ -45,10 +44,10 @@ class Library(Base):
     id = Column(Integer, primary_key=True)
     hash = Column(String)
     secret = Column(String)
-    name = Column(String, nullable=False, server_default='')
-    description = Column(String, nullable=True)
+    name = Column(String)
+    description = Column(String)
     resources = relationship(Resource, back_populates='library', lazy='dynamic',
-            cascade='all, delete-orphan')
+            cascade='all, delete-orphan', single_parent=True)
     UniqueConstraint('hash', 'secret')
 
     def __repr__(self):
