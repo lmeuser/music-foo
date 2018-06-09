@@ -1,9 +1,6 @@
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Table
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-
-
-engine = create_engine('sqlite:///data.db')
+from sqlalchemy.orm import relationship, sessionmaker
 
 Base = declarative_base()
 
@@ -71,3 +68,16 @@ class MetaData(Base):
     value = Column(String)
     link_id = Column(Integer, ForeignKey(Link.id))
     link = relationship(Link, back_populates='meta_data')
+
+
+if __name__ == '__main__':
+    engine = create_engine('sqlite:///data.db')
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    # see https://docs.sqlalchemy.org/en/latest/orm/tutorial.html#adding-and-updating-objects
+    # for how to use.
+    # simple example:
+    # l = Link(url='https://www.youtube.com/watch?v=DLzxrzFCyOs', title='some link')
+    # session.add(l)
+    # session.commit()
