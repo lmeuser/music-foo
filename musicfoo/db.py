@@ -1,76 +1,58 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Table
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Table, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
 Base = declarative_base()
 
-class Link(Base):
-    __tablename__ = 'links'
-
-    id = Column(Integer, primary_key=True)
-    url = Column(String, unique=True, nullable=False)
-    title = Column(String, nullable=False)
-    meta_data = relationship('MetaData', back_populates='link',
-                             cascade='all, delete-orphan')
-
-
-    def __repr__(self):
-        return f'<Link title="{self.title}" url="{self.url}">'
-
-    def __init__(self, url, title, metadata={}):
-        super().__init__(url=url, title=title)
-        md = []
-        for name, val in metadata.items():
-            if isinstance(val, str):
-                md.append(('tag', val))
-            else:
-                for i in val:
-                    md.append(('tag', i))
-        for t, v in md:
-            self.meta_data.append(MetaData(type=t, value=v, link=self))
-
-
-users_groups = Table('users_groups', Base.metadata,
-    Column('user_id', ForeignKey('users.id'), primary_key=True),
-    Column('keyword_id', ForeignKey('groups.id'), primary_key=True)
+resources_metadata = Table('resoures_metadata', Base.metadata,
+    Column('resource_id', ForeignKey('resources.id'), primary_key=True),
+    Column('meta_data_id', ForeignKey('metadata.id'), primary_key=True)
 )
 
-
-class User(Base):
-    __tablename__ = 'users'
+class Resource(Base):
+    __tablename__ = 'resources'
 
     id = Column(Integer, primary_key=True)
-    username = Column(String, unique=True, nullable=False)
-    pwhash = Column(String, nullable=False)
-    groups = relationship('Group', secondary=users_groups, back_populates='users')
+    location = Column(String, unique=True, nullable=False)
+    title = Column(String, nullable=False)
+    type = Column(String, nullable=True)
+    library = relationship('Library', back_populates='resources', uselist=False)
+    meta_data = relationship('MetaData', secondary=resources_metadata,
+            back_populates='resources', cascade='all, delete-orphan',
+            lazy='dynamic')
 
 
     def __repr__(self):
-        return f'<User username="{self.username}">'
+        return f'<Resource title="{self.title}" url="{self.location}", type="{self.type}">'
 
+    def __init__(self, location, title, type=None, metadata={}):
+        super().__init__(location=location, title=title, type=type)
+        md = []
+        [self.add_metadata(key, value) for key, value in metadata.items()]
 
-class Group(Base):
-    __tablename__ = 'groups'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    token = Column(String, nullable=False)
-    users = relationship(User, secondary=users_groups, back_populates='groups')
-
-    def __repr__(self):
-        return f'<Group name="{self.name}">'
-
+    def add_metadata(type, value):
+        if isinstance(value, list):
+            [self.add_metadata(type, subvalue) for subvalue in value]
+        elif isinstance(value, str):
+            self.meta_data.append(MetaData(type=type, value=value, resource=self))
+        else:
+            raise ValueError('Invalid value for metadata')
 
 
 class Library(Base):
     __tablename__ = 'libraries'
 
     id = Column(Integer, primary_key=True)
-    owner_id = Column(Integer, ForeignKey(Group.id))
-    owner = relationship(Group)
+    hash = Column(String)
+    secret = Column(String)
+    name = Column(String, nullable=False, server_default='')
+    description = Column(String, nullable=True)
+    resources = relationship(Resource, back_populates='library', lazy='dynamic',
+            cascade='all, delete-orphan')
+    UniqueConstraint('hash', 'secret')
 
     def __repr__(self):
-        return f'<Library of {self.owner}>'
+        return f'<Library name="{self.name}", description="{self.description}", hash="{self.hash}">'
 
 
 class MetaData(Base):
@@ -79,8 +61,8 @@ class MetaData(Base):
     id = Column(Integer, primary_key=True)
     type = Column(String)
     value = Column(String)
-    link_id = Column(Integer, ForeignKey(Link.id))
-    link = relationship(Link, back_populates='meta_data')
+    resources = relationship(Resource, secondary=resources_metadata,
+            back_populates='meta_data', lazy='dynamic')
 
 
 if __name__ == '__main__':
@@ -91,7 +73,7 @@ if __name__ == '__main__':
     # see https://docs.sqlalchemy.org/en/latest/orm/tutorial.html#adding-and-updating-objects
     # for how to use.
     # simple example:
-    l = Link(url='https://www.youtube.com/watch?v=DLzxrzFCyOs', title='some link',
-             metadata={'tag': ['rick astley', 'meme']})
+    l = Resource(location='https://www.youtube.com/watch?v=DLzxrzFCyOs', title='some resource',
+            metadata={'tag': ['rick astley', 'meme'], 'artist': 'Rihanna'})
     session.add(l)
     session.commit()
