@@ -111,3 +111,4 @@ pyvenv.cfg
 pip-selfcheck.json
 
 data.db
+meta.db
