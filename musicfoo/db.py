@@ -10,6 +10,30 @@ resource_meta = Table('resource_meta', Base.metadata,
     Column('meta_id', ForeignKey('meta.id'), primary_key=True)
 )
 
+class UserLibrary(Base):
+    __tablename__ = 'user_library'
+
+    ACL_READ = 0
+    ACL_ADD = 10
+    ACL_DELETE = 20
+    ACL_ADMIN = 100
+
+    user_id = Column(Integer, ForeignKey('user.id'), primary_key=True)
+    library_id = Column(Integer, ForeignKey('library.id'), primary_key=True)
+    acl = Column(Integer, nullable=False, server_default='0')
+    
+class User(Base):
+    __tablename__ = 'user'
+
+    id = Column(Integer, primary_key=True)
+    login = Column(String, unique=True, nullable=False)
+    password = Column(String)
+    libraries = relationship('Library', back_populates='users',
+        secondary='user_library', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<User login="{self.login}">'
+
 class Resource(Base):
     __tablename__ = 'resource'
 
@@ -20,7 +44,7 @@ class Resource(Base):
     library_id = Column(Integer, ForeignKey('library.id'))
     library = relationship('Library', back_populates='resources', uselist=False)
     meta = relationship('Meta', secondary=resource_meta,
-            back_populates='resources', lazy='dynamic')
+        back_populates='resources', lazy='dynamic')
 
     def __repr__(self):
         return f'<Resource title="{self.title}" location="{self.location}", type="{self.type}">'
@@ -36,6 +60,8 @@ class Library(Base):
     resources = relationship(Resource, back_populates='library', lazy='dynamic')
     meta = relationship('Meta', back_populates='library', single_parent=True,
         cascade='all, delete-orphan', lazy='dynamic')
+    users = relationship('User', back_populates='libraries',
+        secondary='user_library', lazy='dynamic')
 
     def __repr__(self):
         return f'<Library name="{self.name}", description="{self.description}", hash="{self.hash}">'
@@ -47,7 +73,7 @@ class Meta(Base):
     type = Column(String, nullable=False)
     value = Column(String, nullable=False, server_default='')
     resources = relationship(Resource, secondary=resource_meta,
-            back_populates='meta', lazy='dynamic')
+        back_populates='meta', lazy='dynamic')
     library_id = Column(Integer, ForeignKey('library.id'))
     library = relationship(Library, back_populates='meta')
 
@@ -65,8 +91,13 @@ if __name__ == '__main__':
     # for how to use.
     # simple example:
     libraries = [
-        Library(hash='123', secret='456', name='Lib #1'),
-        Library(hash='456', secret='789', name='Lib #2')
+        Library(hash='123', secret='456', name='Lib #1', users=[
+            User(login='test@example.com', password='SOME_HASH'),
+            User(login='test2@example.com', password='ANOTHER_HASH')
+        ]),
+        Library(hash='456', secret='789', name='Lib #2', users=[
+            User(login='telegrambot@example.com', password='HASHHASHHASH')
+        ])
     ]
     for library in libraries:
         session.add(library)
@@ -80,7 +111,7 @@ if __name__ == '__main__':
         Resource(location='https://www.youtube.com/watch?v=DLzxrzFCyOs',
             title='youtube - totally not gonna give you up', type='youtube', library=library,
             meta=[Meta(type='tag', value='harmless video')]),
-        Resource(location='file;///home/joe/test.mp3',
+        Resource(location='file:///home/joe/test.mp3',
             title='a test audio file on my harddrive', type='local', library=library,
             meta=[Meta(type='comment', value='delete this')])
     ]
@@ -99,7 +130,9 @@ if __name__ == '__main__':
     print()
     for library in session.query(Library):
         print(library)
-        for resource in session.query(Resource).filter(Resource.library == library):
+        for user in library.users:
+            print(' '*2+str(user))
+        for resource in library.resources:
             print(' '*2+str(resource))
             for meta in session.query(Meta).filter(Meta.resources.contains(resource)):
                 print(' '*4+str(meta))
