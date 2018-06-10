@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Table, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.exc import IntegrityError
 
 Base = declarative_base()
 
@@ -28,14 +29,13 @@ class Library(Base):
     __tablename__ = 'library'
 
     id = Column(Integer, primary_key=True)
-    hash = Column(String, nullable=False)
+    hash = Column(String, nullable=False, unique=True)
     secret = Column(String, nullable=False)
     name = Column(String, nullable=False)
     description = Column(String)
     resources = relationship(Resource, back_populates='library', lazy='dynamic')
     meta = relationship('Meta', back_populates='library', single_parent=True,
         cascade='all, delete-orphan', lazy='dynamic')
-    UniqueConstraint('hash', 'secret')
 
     def __repr__(self):
         return f'<Library name="{self.name}", description="{self.description}", hash="{self.hash}">'
@@ -56,16 +56,29 @@ class Meta(Base):
 
 if __name__ == '__main__':
     engine = create_engine('sqlite:///meta.db')
+    Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
+    
 
     # see https://docs.sqlalchemy.org/en/latest/orm/tutorial.html#adding-and-updating-objects
     # for how to use.
     # simple example:
     library = Library(hash='123', secret='456', name='Lib #1')
+    session.add(library)
+    try:
+        session.commit()
+    except IntegrityError:
+        print('Library cannot be saved, hash must be unique')
+        session.rollback()
+
     resource = Resource(location='https://www.youtube.com/watch?v=DLzxrzFCyOs',
             title='some resource', type='youtube', library=library)
     meta = Meta(type='tag', value='rickroll', resources=[resource])
     library.resources.append(resource)
-    session.add(library)
-    session.commit()
+    session.add(resource)
+    try:
+        session.commit()
+    except IntegrityError:
+        print('Resource is already known')
+        session.rollback()
