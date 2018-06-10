@@ -18,7 +18,7 @@ class Resource(Base):
     title = Column(String, nullable=False)
     type = Column(String)
     library_id = Column(Integer, ForeignKey('library.id'))
-    library = relationship('Library', back_populates='resources', uselist=False, single_parent=True)
+    library = relationship('Library', back_populates='resources', uselist=False)
     meta = relationship('Meta', secondary=resource_meta,
             back_populates='resources', lazy='dynamic')
 
@@ -64,21 +64,42 @@ if __name__ == '__main__':
     # see https://docs.sqlalchemy.org/en/latest/orm/tutorial.html#adding-and-updating-objects
     # for how to use.
     # simple example:
-    library = Library(hash='123', secret='456', name='Lib #1')
-    session.add(library)
-    try:
-        session.commit()
-    except IntegrityError:
-        print('Library cannot be saved, hash must be unique')
-        session.rollback()
+    libraries = [
+        Library(hash='123', secret='456', name='Lib #1'),
+        Library(hash='456', secret='789', name='Lib #2')
+    ]
+    for library in libraries:
+        session.add(library)
+        try:
+            session.commit()
+        except IntegrityError:
+            print('Library cannot be saved, hash must be unique')
+            session.rollback()
 
-    resource = Resource(location='https://www.youtube.com/watch?v=DLzxrzFCyOs',
-            title='some resource', type='youtube', library=library)
-    meta = Meta(type='tag', value='rickroll', resources=[resource])
-    library.resources.append(resource)
-    session.add(resource)
-    try:
-        session.commit()
-    except IntegrityError:
-        print('Resource is already known')
-        session.rollback()
+    resources = [
+        Resource(location='https://www.youtube.com/watch?v=DLzxrzFCyOs',
+            title='youtube - totally not gonna give you up', type='youtube', library=library,
+            meta=[Meta(type='tag', value='harmless video')]),
+        Resource(location='file;///home/joe/test.mp3',
+            title='a test audio file on my harddrive', type='local', library=library,
+            meta=[Meta(type='comment', value='delete this')])
+    ]
+    
+    from random import randint
+    for resource in resources:
+        resource.library=libraries[randint(0,1)]
+
+        session.add(resource)
+        try:
+            session.commit()
+        except IntegrityError:
+            print('Resource is already known')
+            session.rollback()
+
+    print()
+    for library in session.query(Library):
+        print(library)
+        for resource in session.query(Resource).filter(Resource.library == library):
+            print(' '*2+str(resource))
+            for meta in session.query(Meta).filter(Meta.resources.contains(resource)):
+                print(' '*4+str(meta))
