@@ -13,14 +13,14 @@ resource_meta = Table('resource_meta', Base.metadata,
 class UserLibrary(Base):
     __tablename__ = 'user_library'
 
-    ACL_READ = 0
-    ACL_ADD = 10
-    ACL_DELETE = 20
-    ACL_ADMIN = 100
+    PERM_READ = 0
+    PERM_ADD = 10
+    PERM_DELETE = 20
+    PERM_ADMIN = 100
 
     user_id = Column(Integer, ForeignKey('user.id'), primary_key=True)
     library_id = Column(Integer, ForeignKey('library.id'), primary_key=True)
-    acl = Column(Integer, nullable=False, server_default='0')
+    permissions = Column(Integer, nullable=False, server_default='0')
     
 class User(Base):
     __tablename__ = 'user'
@@ -62,9 +62,24 @@ class Library(Base):
         cascade='all, delete-orphan', lazy='dynamic')
     users = relationship('User', back_populates='libraries',
         secondary='user_library', lazy='dynamic')
+    tokens = relationship('Token', back_populates='library', lazy='dynamic')
 
     def __repr__(self):
         return f'<Library name="{self.name}", description="{self.description}", hash="{self.hash}">'
+
+class Token(Base):
+    __tablename__ = 'token'
+
+    id = Column(Integer, primary_key=True)
+    description = Column(String)
+    secret = Column(String, unique=True)
+    permissions = Column(Integer)
+    library_id = Column(Integer, ForeignKey('library.id'))
+    library = relationship('Library', back_populates='tokens', uselist=False)
+
+    def __repr__(self):
+        return f'<Token description="{self.description}" secret="{self.secret}",
+            permissions="{self.permissions}">'
 
 class Meta(Base):
     __tablename__ = 'meta'
